@@ -25,6 +25,7 @@ class GravadorService : Service() {
         const val ACAO_PARAR = "br.com.praktor.gravadorclub.PARAR"
         const val PARTE_MS = 60_000L
         const val BATIDA_MS = 60_000L
+        const val RECONFERIR_MS = 300_000L
         const val CANAL = "gravacao"
         const val ID_NOTIF = 7
         const val MIC_RETRY_MS = 10_000L
@@ -207,9 +208,16 @@ class GravadorService : Service() {
     private fun lacoDeEnvio() {
         var espera = 5_000L
         var ultimaBatida = -BATIDA_MS
+        var ultimaReconferida = 0L
         while (vivo) {
             try {
-                if (estado.codigo.isBlank() || estado.recusado) { Thread.sleep(3_000); continue }
+                if (estado.codigo.isBlank()) { Thread.sleep(3_000); continue }
+                if (estado.recusado) {
+                    // um 401 não trava para sempre: a cada 5 min confere o código de novo e, se voltou a valer, segue a fila
+                    val t = SystemClock.elapsedRealtime()
+                    if (ultimaReconferida == 0L || t - ultimaReconferida >= RECONFERIR_MS) { ultimaReconferida = t; baterPonto() }
+                    if (estado.recusado) { Thread.sleep(3_000); continue }
+                }
                 val agora = SystemClock.elapsedRealtime()
                 if (agora - ultimaBatida >= BATIDA_MS) { ultimaBatida = agora; baterPonto() }
                 val prox = estado.naFila().firstOrNull()
@@ -279,7 +287,10 @@ class GravadorService : Service() {
             c.setFixedLengthStreamingMode(corpo.size)
             c.outputStream.use { it.write(corpo) }
             val cod = c.responseCode
-            if (cod in 200..299) lerResposta(c)?.let { aplicarPausa(it) }
+            if (cod in 200..299) {
+                if (estado.recusado) { estado.recusado = false; estado.erro = "" }
+                lerResposta(c)?.let { aplicarPausa(it) }
+            }
             else if (cod == 401) { estado.recusado = true; estado.erro = "código recusado" }
         } catch (_: java.io.IOException) {
         } finally {

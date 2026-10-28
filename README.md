@@ -33,7 +33,7 @@ Outras marcas: veja a página do fabricante em dontkillmyapp.com.
 ## Como funciona
 
 - Cada parte: AAC/MPEG-4, 16 kHz, mono, ~32 kbps, arquivo `fila/<inicioEpochSeg>_<durSeg>.m4a`.
-- Envio: 2xx apaga; erro de rede ou 5xx espera e tenta de novo; 400/413/422 renomeia para `.recusada`; 401 para e mostra "código recusado".
+- Envio: 2xx apaga; erro de rede ou 5xx espera e tenta de novo; 400/413/422 renomeia para `.recusada`; 401 mostra "código recusado" e confere o código de novo a cada 5 min; o campo do código trava enquanto grava.
 - Sinal de vida a cada 60 s. Se o servidor responder `pausado: true`, o app para de gravar ("Pausado pelo Club") e volta quando vier `false`.
 - Se o microfone for tomado (ligação), tenta reabrir em 10 s.
 

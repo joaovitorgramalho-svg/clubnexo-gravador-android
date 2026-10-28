@@ -78,6 +78,8 @@ class MainActivity : Activity() {
     override fun onPause() { ui.removeCallbacks(tic); salvarCampos(); super.onPause() }
 
     private fun salvarCampos() {
+        // gravando, o campo fica travado: um toque no bolso não pode trocar o código e parar o envio
+        if (estado.gravando) return
         val c = codigo.text.toString().trim()
         if (c != estado.codigo) estado.codigo = c
         val s = servidor.text.toString().trim().trimEnd('/')
@@ -91,6 +93,7 @@ class MainActivity : Activity() {
         }
         salvarCampos()
         if (estado.codigo.isBlank()) { estado.erro = "falta o código do gravador"; return }
+        estado.recusado = false
         val faltam = mutableListOf<String>()
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) faltam += Manifest.permission.RECORD_AUDIO
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) faltam += Manifest.permission.POST_NOTIFICATIONS
@@ -126,6 +129,8 @@ class MainActivity : Activity() {
     private fun atualizar() {
         val g = estado.gravando
         botao.text = if (g) "Parar" else "Começar a gravar"
+        codigo.isEnabled = !g
+        servidor.isEnabled = !g
         val pm = getSystemService(PowerManager::class.java)
         val sb = StringBuilder()
         sb.append(
@@ -140,7 +145,8 @@ class MainActivity : Activity() {
         val u = estado.ultimoEnvio
         val atras = (System.currentTimeMillis() - u) / 1000
         sb.append("\nÚltimo envio: " + if (u == 0L) "ainda não" else "há " + (if (atras < 90) "$atras s" else "${atras / 60} min"))
-        if (estado.recusado) sb.append("\nCódigo recusado")
+        if (estado.codigo.isNotBlank()) sb.append("\nCódigo termina em: ${estado.codigo.takeLast(4)}")
+        if (estado.recusado) sb.append("\nCódigo recusado (confere de novo a cada 5 min)")
         if (estado.erro.isNotEmpty()) sb.append("\nÚltimo erro: ${estado.erro}")
         if (!pm.isIgnoringBatteryOptimizations(packageName)) sb.append("\nBateria: toque em Liberar bateria")
         linha.text = sb.toString()
